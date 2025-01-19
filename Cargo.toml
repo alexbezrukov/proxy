@@ -7,6 +7,5 @@ edition = "2021"
 mio = { version = "0.8", features = ["net", "os-poll"] }
 byteorder = "1.4"
 
-[[bin]]
-name = "proxy_rust"
-path = "src/main.rs"
+[build]
+target = "x86_64-unknown-linux-gnu"

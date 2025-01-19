@@ -12,10 +12,10 @@ Group=proxy_rust
 WorkingDirectory=/opt/proxy_rust
 
 # Path to the executable
-ExecStart=/opt/proxy_rust/target/release/proxy_rust
+ExecStart=/opt/proxy_rust/proxy_rust
 
 # Restart policy
-Restart=always
+Restart=on-failure
 RestartSec=5
 
 # Log settings
