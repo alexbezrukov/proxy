@@ -1,0 +1,36 @@
+# Ignore the target directory, which contains compiled files
+/target/
+
+# Ignore Cargo.lock if this is a library project (uncomment if applicable)
+# /Cargo.lock
+
+# Ignore temporary files and directories created by editors or tools
+**/*.rs.bk
+*.rs.bk
+*.swp
+*.swo
+*.tmp
+*.bak
+
+# Ignore configuration files for popular IDEs and editors
+
+# VSCode settings
+/.vscode/
+/.vscode/
+
+# JetBrains IDEs (e.g., IntelliJ IDEA, CLion)
+.idea/
+/*.iml
+
+# Other editor-specific files
+/.DS_Store
+Thumbs.db
+
+# Rust-specific artifacts
+**/Cargo.lock.bk
+/.rustup/
+
+# Log files
+*.log
+
+.vs

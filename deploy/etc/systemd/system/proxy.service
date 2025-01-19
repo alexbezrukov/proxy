@@ -1,0 +1,42 @@
+[Unit]
+Description=Proxy Rust Service
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+# Use a non-root user for security purposes
+User=proxy_rust
+Group=proxy_rust
+
+# Working directory for the service
+WorkingDirectory=/opt/proxy_rust
+
+# Path to the executable
+ExecStart=/opt/proxy_rust/target/release/proxy_rust
+
+# Restart policy
+Restart=always
+RestartSec=5
+
+# Log settings
+StandardOutput=append:/var/log/proxy_rust/proxy.log
+StandardError=append:/var/log/proxy_rust/proxy_error.log
+
+# Environment variables
+Environment="RUST_BACKTRACE=1"
+Environment="ENVIRONMENT=production"
+
+# Limit resource usage for better stability
+MemoryLimit=500M
+CPUQuota=75%
+
+# Security settings
+ProtectSystem=full
+ProtectHome=true
+NoNewPrivileges=true
+PrivateTmp=true
+ReadOnlyPaths=/etc
+ReadWritePaths=/var/log/proxy_rust
+
+[Install]
+WantedBy=multi-user.target

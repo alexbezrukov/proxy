@@ -1,0 +1,12 @@
+[package]
+name = "proxy_rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mio = { version = "0.8", features = ["net", "os-poll"] }
+byteorder = "1.4"
+
+[[bin]]
+name = "proxy_rust"
+path = "src/main.rs"
