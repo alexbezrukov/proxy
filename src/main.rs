@@ -22,20 +22,22 @@ fn handle_client(mut conn: TcpStream) -> Result<(), Box<dyn Error>> {
         0x04 => handle_socks4(&mut conn)?, 
         // Handle HTTP CONNECT
         b'A'..=b'Z' | b'a'..=b'z' => {
-            // Possible HTTP method
             let mut buffer = [0; 4096];
             let bytes_read = conn.read(&mut buffer)?;
             let initial_data = str::from_utf8(&buffer[..bytes_read])?;
 
             if initial_data.starts_with("CONNECT") {
-                handle_http_connect(&mut conn, initial_data)?;
+                handle_http_connect(&mut conn, initial_data).expect("failed to handle HTTP CONNECT");
+            } else if initial_data.starts_with("GET") {
+                handle_http_get(&mut conn, initial_data)?;
+            } else if initial_data.starts_with("POST") {
+                handle_http_post(&mut conn, initial_data)?;
             } else {
                 eprintln!("Unknown HTTP method from {}", conn.peer_addr()?);
                 conn.shutdown(Shutdown::Both)?;
             }
         }
         _ => {
-            // Unknown protocol
             eprintln!("Unknown protocol from {}", conn.peer_addr()?);
             conn.shutdown(Shutdown::Both)?;
         }
@@ -44,10 +46,100 @@ fn handle_client(mut conn: TcpStream) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[allow(unused_variables)]
 fn handle_http_connect(conn: &mut TcpStream, initial_data: &str) -> Result<(), Box<dyn Error>> {
     println!("Handling HTTP CONNECT request: {}", initial_data);
-    // Placeholder for handling HTTP CONNECT requests
+
+    // Step 1: Parse the CONNECT request
+    let parts: Vec<&str> = initial_data.split_whitespace().collect();
+    if parts.len() < 3 || parts[0] != "CONNECT" {
+        eprintln!("Invalid HTTP CONNECT request: {}", initial_data);
+        conn.shutdown(Shutdown::Both)?;
+        return Ok(());
+    }
+
+    let target_address = parts[1]; // This should be in the format "hostname:port"
+    println!("Connecting to target address: {}", target_address);
+
+    // Step 2: Establish a connection to the target server
+    let remote_socket = TcpStream::connect(target_address).expect("failed to connect to remote host");
+    
+    // Step 3: Send the 200 Connection Established response to the client
+    let response = "HTTP/1.1 200 Connection Established\r\n\r\n";
+    if let Err(e) = conn.write_all(response.as_bytes()) {
+        eprintln!("Error sending connection established response: {}", e);
+        conn.shutdown(Shutdown::Both)?;
+        return Err(Box::new(e));
+    }
+
+    // Step 4: Forward traffic between the client and the remote server
+    forward_traffic(conn, remote_socket);
+
+    Ok(())
+}
+
+fn handle_http_get(conn: &mut TcpStream, initial_data: &str) -> Result<(), Box<dyn Error>> {
+    println!("Handling HTTP GET request: {}", initial_data);
+
+    // Step 1: Parse the HTTP GET request
+    let mut parts = initial_data.split_whitespace();
+    let method = parts.next().unwrap_or_default();
+    let path = parts.next().unwrap_or_default();
+    let version = parts.next().unwrap_or_default();
+
+    if method != "GET" {
+        eprintln!("Unsupported HTTP method: {}", method);
+        conn.shutdown(Shutdown::Both)?;
+        return Ok(());
+    }
+
+    // Step 2: Extract the Host header (this is typically included in the request headers)
+    let mut host = String::new();
+    for line in initial_data.lines() {
+        if line.to_lowercase().starts_with("host:") {
+            host = line[5..].trim().to_string();
+            break;
+        }
+    }
+
+    if host.is_empty() {
+        eprintln!("Host header missing or empty");
+        conn.shutdown(Shutdown::Both)?;
+        return Ok(());
+    }
+
+    // Step 3: Connect to the remote server using the Host header (assuming HTTP)
+    let remote_address = format!("{}:80", host); // Connect to the host on port 80 (HTTP)
+    let mut remote_socket = TcpStream::connect(remote_address)?;
+
+    // Step 4: Forward the HTTP GET request to the remote server
+    let request = format!("{} {} {}\r\n", method, path, version);
+    if let Err(e) = remote_socket.write_all(request.as_bytes()) {
+        eprintln!("Error sending GET request to remote server: {}", e);
+        conn.shutdown(Shutdown::Both)?;
+        return Err(Box::new(e));
+    }
+
+    // Forward any additional headers from the client to the remote server
+    let mut buffer = [0u8; BUFFER_SIZE];
+    let bytes_read = conn.read(&mut buffer)?;
+    let client_data = str::from_utf8(&buffer[..bytes_read])?;
+    
+    if let Err(e) = remote_socket.write_all(client_data.as_bytes()) {
+        eprintln!("Error writing headers to remote server: {}", e);
+        conn.shutdown(Shutdown::Both)?;
+        return Err(Box::new(e));
+    }
+
+    // Step 5: Forward traffic between client and remote server
+    forward_traffic(conn, remote_socket);
+
+    Ok(())
+}
+
+#[allow(unused_variables)]
+fn handle_http_post(conn: &mut TcpStream, initial_data: &str) -> Result<(), Box<dyn Error>> {
+    println!("Handling HTTP POST request: {}", initial_data);
+    // Handle the HTTP POST request here
     Ok(())
 }
 
@@ -86,10 +178,13 @@ fn handle_socks5(conn: &mut TcpStream) -> Result<(), Box<dyn Error>> {
     conn.read_exact(&mut buf)
         .expect("Failed to read SOCKS request");
 
-    let request_version = buf[0]; // Version of the request (should be 5)
+    // Version of the request (should be 5)
+    let request_version = buf[0]; 
     #[allow(unused_variables)]
-    let cmd = buf[1]; // Command (1 = connect)
-    let addr_type = buf[3]; // Address type (1 = IPv4, 3 = domain)
+    // Command (1 = connect)
+    let cmd = buf[1]; 
+    // Address type (1 = IPv4, 3 = domain)
+    let addr_type = buf[3];
 
     if request_version != 5 {
         println!("Unsupported SOCKS version: {}", request_version);
@@ -142,8 +237,9 @@ fn handle_socks5(conn: &mut TcpStream) -> Result<(), Box<dyn Error>> {
         .expect("Failed to send address type (IPv4)");
 
     // Sending IP address and port as 0.0.0.0:0 in the response
+    // 127.0.0.1 (for example)
     conn.write_u32::<BigEndian>(0x7F000001)
-        .expect("Failed to send IPv4 address in response"); // 127.0.0.1 (for example)
+        .expect("Failed to send IPv4 address in response"); 
     conn.write_u16::<BigEndian>(port)
         .expect("Failed to send port in response");
 

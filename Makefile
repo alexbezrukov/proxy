@@ -1,6 +1,8 @@
+# Include the environment variables file
+# PLEASE ADD REMOTE_USER and REMOTE_HOST to your .env file!
+-include .env
+
 # Remote server configuration
-REMOTE_USER = <your_user>
-REMOTE_HOST = <your_ip>
 REMOTE_DIR = /opt/proxy_rust
 SERVICE_NAME = proxy_rust.service
 
