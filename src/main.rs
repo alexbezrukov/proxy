@@ -19,7 +19,7 @@ fn handle_client(mut conn: TcpStream) -> Result<(), Box<dyn Error>> {
         // Handle SOCKS5 (0x05 is start of a SOCKS5 handshake)
         0x05 => handle_socks5(&mut conn)?,
         // SOCKS4 handshake
-        0x04 => handle_socks4(&mut conn)?, 
+        0x04 => handle_socks4(&mut conn)?,
         // Handle HTTP CONNECT
         b'A'..=b'Z' | b'a'..=b'z' => {
             let mut buffer = [0; 4096];
@@ -27,7 +27,8 @@ fn handle_client(mut conn: TcpStream) -> Result<(), Box<dyn Error>> {
             let initial_data = str::from_utf8(&buffer[..bytes_read])?;
 
             if initial_data.starts_with("CONNECT") {
-                handle_http_connect(&mut conn, initial_data).expect("failed to handle HTTP CONNECT");
+                handle_http_connect(&mut conn, initial_data)
+                    .expect("failed to handle HTTP CONNECT");
             } else if initial_data.starts_with("GET") {
                 handle_http_get(&mut conn, initial_data)?;
             } else if initial_data.starts_with("POST") {
@@ -61,8 +62,9 @@ fn handle_http_connect(conn: &mut TcpStream, initial_data: &str) -> Result<(), B
     println!("Connecting to target address: {}", target_address);
 
     // Step 2: Establish a connection to the target server
-    let remote_socket = TcpStream::connect(target_address).expect("failed to connect to remote host");
-    
+    let remote_socket =
+        TcpStream::connect(target_address).expect("failed to connect to remote host");
+
     // Step 3: Send the 200 Connection Established response to the client
     let response = "HTTP/1.1 200 Connection Established\r\n\r\n";
     if let Err(e) = conn.write_all(response.as_bytes()) {
@@ -123,7 +125,7 @@ fn handle_http_get(conn: &mut TcpStream, initial_data: &str) -> Result<(), Box<d
     let mut buffer = [0u8; BUFFER_SIZE];
     let bytes_read = conn.read(&mut buffer)?;
     let client_data = str::from_utf8(&buffer[..bytes_read])?;
-    
+
     if let Err(e) = remote_socket.write_all(client_data.as_bytes()) {
         eprintln!("Error writing headers to remote server: {}", e);
         conn.shutdown(Shutdown::Both)?;
@@ -179,10 +181,10 @@ fn handle_socks5(conn: &mut TcpStream) -> Result<(), Box<dyn Error>> {
         .expect("Failed to read SOCKS request");
 
     // Version of the request (should be 5)
-    let request_version = buf[0]; 
+    let request_version = buf[0];
     #[allow(unused_variables)]
     // Command (1 = connect)
-    let cmd = buf[1]; 
+    let cmd = buf[1];
     // Address type (1 = IPv4, 3 = domain)
     let addr_type = buf[3];
 
@@ -239,7 +241,7 @@ fn handle_socks5(conn: &mut TcpStream) -> Result<(), Box<dyn Error>> {
     // Sending IP address and port as 0.0.0.0:0 in the response
     // 127.0.0.1 (for example)
     conn.write_u32::<BigEndian>(0x7F000001)
-        .expect("Failed to send IPv4 address in response"); 
+        .expect("Failed to send IPv4 address in response");
     conn.write_u16::<BigEndian>(port)
         .expect("Failed to send port in response");
 
@@ -371,7 +373,7 @@ fn forward_traffic(client_socket: &mut TcpStream, mut remote_socket: TcpStream) 
 }
 
 fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind(("0.0.0.0", PORT))?;
+    let listener = TcpListener::bind(("127.0.0.1", PORT))?;
     println!("Server listening on port {}...", PORT);
 
     for stream in listener.incoming() {
