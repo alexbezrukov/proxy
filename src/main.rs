@@ -1,4 +1,5 @@
 use byteorder::{BigEndian, WriteBytesExt};
+use chrono::{DateTime, Utc};
 use core::str;
 use std::error::Error;
 use std::io::{self, Read, Write};
@@ -12,10 +13,12 @@ const BUFFER_SIZE: usize = 8192;
 fn log_connection_info(conn: &TcpStream, target: &str) {
     if let Ok(peer_addr) = conn.peer_addr() {
         if let Ok(since_the_epoch) = SystemTime::now().duration_since(UNIX_EPOCH) {
-            let timestamp = since_the_epoch.as_secs();
+            let datetime: DateTime<Utc> = DateTime::from(SystemTime::now());
             println!(
                 "Connection from IP: {}, Time: {}, Target: {}",
-                peer_addr, timestamp, target
+                peer_addr,
+                datetime.format("%Y-%m-%d %H:%M:%S"),
+                target
             );
         }
     }
